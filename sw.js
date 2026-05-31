@@ -1,5 +1,5 @@
-// Profil Raskroy — service worker (oflayn ishlash uchun)
-const CACHE = 'raskroy-v1';
+// Profil Raskroy — service worker (oflayn + avtomat yangilanish)
+const CACHE = 'raskroy-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -23,19 +23,16 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Avval keshdan, bo'lmasa internetdan (cache-first)
+// Network-first: internet bo'lsa har doim yangi versiya, bo'lmasa keshdan (oflayn)
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then((hit) =>
-      hit ||
-      fetch(e.request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match('./index.html'))
-    )
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request).then((hit) => hit || caches.match('./index.html')))
   );
 });
