@@ -1,0 +1,26 @@
+{
+  "name": "Profil Raskroy Kalkulyatori",
+  "short_name": "Raskroy",
+  "description": "Profillarni eng kam chiqindi bilan kesish rejasini hisoblaydi.",
+  "lang": "uz",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f0f2f5",
+  "theme_color": "#0d47a1",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
