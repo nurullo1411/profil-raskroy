@@ -120,6 +120,12 @@
   .results-title { font-size: 20px; color:#0d47a1; }
   .btn-print { background: #2e7d32; color: #fff; }
   .btn-print:hover { background: #388e3c; }
+  .btn-edit { background: #ede7f6; color: #512da8; }
+  .btn-edit:hover { background: #d1c4e9; }
+  .editing .piece { cursor: pointer; }
+  .editing .piece:hover { filter: brightness(1.12); }
+  .piece.sel { outline: 3px solid #ffd600; outline-offset: -3px; box-shadow: 0 0 0 2px #ffd600 inset; }
+  .edit-hint { font-size: 13px; color: #5e35b1; background: #ede7f6; padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; }
   .save-row { display: flex; gap: 10px; align-items: stretch; }
   .save-row input, .save-row select { flex: 1; }
   .save-row select { padding: 9px 10px; border: 1px solid #ccd; border-radius: 7px; font-size: 15px; background:#fff; }
@@ -215,7 +221,14 @@
   <div id="results">
     <div class="results-head">
       <div class="results-title" id="resultsTitle">📋 Natija — Kesish rejasi</div>
-      <button class="btn btn-print no-print" onclick="window.print()">🖨️ Chop etish / PDF</button>
+      <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn btn-edit" id="editToggle" onclick="toggleEdit()">✏️ Qo'lda moslash</button>
+        <button class="btn btn-print" onclick="window.print()">🖨️ Chop etish / PDF</button>
+      </div>
+    </div>
+    <div id="editControls" class="no-print" style="display:none">
+      <div class="edit-hint">✋ Bo'lakni bosing — keyin <b>boshqa bo'lakni</b> bossangiz o'rin almashadi, yoki <b>bo'sh (qoldiq) joyni</b> bossangiz o'sha profilga ko'chadi.</div>
+      <button class="btn btn-add" onclick="addEmptyBar()" style="margin:0 0 10px">➕ Bo'sh profil qo'shish</button>
     </div>
     <div class="print-date no-print-hide" id="printDate"></div>
     <div class="summary" id="summary"></div>
@@ -225,6 +238,11 @@
 
 <script>
 const COLORS = ['#1976d2','#388e3c','#7b1fa2','#c2185b','#0097a7','#5d4037','#455a64','#f57c00','#512da8','#00796b'];
+
+// Kesish rejasi holati (qo'lda moslash uchun)
+let planBars = [];   // [{original, fromStock, cuts:[son,...]}]
+let planKerf = 0, planBarLen = 0, planName = '', planDate = '';
+let editMode = false, sel = null;
 
 // Bir katakdagi inputga o'tish (bo'lsa) — true qaytaradi
 function focusCell(tr, col) {
@@ -444,21 +462,13 @@ function calculate() {
   const stockUsed = used.filter(b => b.fromStock);
   const totalScrap = used.reduce((s, b) => s + b.cap, 0);
 
-  document.getElementById('resultsTitle').textContent =
-    '📋 Natija — Kesish rejasi' + (profileName ? ' — ' + profileName : '');
-
+  planBars = used.map(b => ({ original: b.original, fromStock: b.fromStock, cuts: b.cuts.map(c => c.len) }));
+  planKerf = kerf; planBarLen = barLen; planName = profileName;
   const now = new Date();
-  const dateStr = now.toLocaleDateString('uz-UZ') + ' ' + now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('printDate').textContent =
-    (profileName ? 'Profil: ' + profileName + '  •  ' : '') + 'Profil uzunligi: ' + barLen + 'sm  •  Sana: ' + dateStr;
+  planDate = now.toLocaleDateString('uz-UZ') + ' ' + now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+  editMode = false; sel = null;
 
-  renderSummary({
-    newBarsCount: newBars.length,
-    newBarsMeters: (newBars.length * barLen / 100).toFixed(2),
-    stockUsedCount: stockUsed.length,
-    totalScrap
-  });
-  renderBars(used);
+  renderPlan();
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 }
@@ -471,54 +481,141 @@ function renderSummary(s) {
     <div class="stat waste"><div class="num">${(s.totalScrap/100).toFixed(2)} m</div><div class="lbl">Umumiy qoldiq/chiqindi</div></div>`;
 }
 
-function renderBars(used) {
-  const wrap = document.getElementById('barPlan');
-  wrap.innerHTML = '';
+function barUsed(bar) {
+  const n = bar.cuts.length;
+  return bar.cuts.reduce((s, x) => s + x, 0) + (n > 0 ? planKerf * (n - 1) : 0);
+}
+function barScrap(bar) { return bar.original - barUsed(bar); }
 
+function renderPlan() {
+  document.getElementById('resultsTitle').textContent =
+    '📋 Natija — Kesish rejasi' + (planName ? ' — ' + planName : '');
+  document.getElementById('printDate').textContent =
+    (planName ? 'Profil: ' + planName + '  •  ' : '') + 'Profil uzunligi: ' + planBarLen + 'sm  •  Sana: ' + planDate;
+
+  const real = planBars.filter(b => b.cuts.length > 0);
+  const newBars = real.filter(b => !b.fromStock);
+  const stockUsed = real.filter(b => b.fromStock);
+  const totalScrap = real.reduce((s, b) => s + barScrap(b), 0);
+  renderSummary({
+    newBarsCount: newBars.length,
+    newBarsMeters: (newBars.length * planBarLen / 100).toFixed(2),
+    stockUsedCount: stockUsed.length,
+    totalScrap
+  });
+
+  const eb = document.getElementById('editToggle');
+  if (eb) eb.textContent = editMode ? "✓ Tayyor" : "✏️ Qo'lda moslash";
+  document.getElementById('editControls').style.display = editMode ? 'block' : 'none';
+
+  if (editMode) renderEditBars(); else renderGroupedBars();
+}
+
+// Bitta profil kartasi (bi >= 0 bo'lsa — tahrirlanadigan)
+function barCard(bar, count, bi) {
+  const editable = bi >= 0;
+  const total = bar.original;
+  const scrap = barScrap(bar);
+  const label = bar.fromStock ? `Sklad qoldig'i (${total}sm)` : `Yangi profil (${total}sm)`;
+
+  let viz = '';
+  bar.cuts.forEach((len, pi) => {
+    const pct = (len / total) * 100;
+    const isSel = editable && sel && sel.bi === bi && sel.pi === pi;
+    const click = editable ? ` onclick="selectPiece(${bi},${pi})"` : '';
+    viz += `<div class="piece${isSel ? ' sel' : ''}" style="width:${pct}%;background:${COLORS[pi % COLORS.length]}"${click} title="${len}sm">${len}</div>`;
+  });
+  const scrapPct = (scrap / total) * 100;
+  if (scrap > 0.05) {
+    const click = editable ? ` onclick="moveToBar(${bi})"` : '';
+    viz += `<div class="piece scrap" style="width:${scrapPct}%"${click} title="Qoldiq (bu yerga ko'chirish mumkin)">${round1(scrap)}</div>`;
+  }
+
+  const cutTxt = bar.cuts.length ? bar.cuts.map(c => c + 'sm').join('  +  ') : "(bo'sh)";
+  const reuse = scrap >= 30 ? `<div class="reuse-note">♻️ ${round1(scrap)}sm qoldiq — keyingi buyurtmaga saqlash mumkin</div>` : '';
+  const multBadge = count > 1 ? `<span class="mult">× ${count} dona</span>` : '';
+
+  const div = document.createElement('div');
+  div.className = 'bar' + (bar.fromStock ? ' from-stock' : '');
+  div.innerHTML = `
+    <div class="bar-head">
+      <span>${label} ${multBadge}</span>
+      <span class="src">${bar.fromStock ? 'SKLAD' : 'YANGI'}</span>
+    </div>
+    <div class="viz">${viz}</div>
+    <div class="cut-list">${cutTxt}  →  <span class="scrap-txt">qoldiq: ${round1(scrap)}sm</span></div>
+    ${reuse}`;
+  return div;
+}
+
+// Oddiy ko'rinish — bir xil profillar guruhlanadi (× N)
+function renderGroupedBars() {
+  const wrap = document.getElementById('barPlan');
+  wrap.className = '';
+  wrap.innerHTML = '';
+  const used = planBars.filter(b => b.cuts.length > 0);
   const groups = {};
-  used.forEach(bin => {
-    const lens = bin.cuts.map(c => c.len).sort((a, b) => b - a);
-    const sig = (bin.fromStock ? 'S' : 'N') + '|' + bin.original + '|' + lens.join(',');
-    if (!groups[sig]) groups[sig] = { bin, count: 0 };
+  used.forEach(bar => {
+    const lens = bar.cuts.slice().sort((a, b) => b - a);
+    const sig = (bar.fromStock ? 'S' : 'N') + '|' + bar.original + '|' + lens.join(',');
+    if (!groups[sig]) groups[sig] = { bar, count: 0 };
     groups[sig].count++;
   });
+  Object.values(groups)
+    .sort((a, b) => (b.bar.fromStock - a.bar.fromStock) || (b.bar.original - a.bar.original))
+    .forEach(g => wrap.appendChild(barCard(g.bar, g.count, -1)));
+}
 
-  let list = Object.values(groups);
-  list.sort((a, b) => (b.bin.fromStock - a.bin.fromStock) || (b.bin.original - a.bin.original));
+// Tahrir ko'rinishi — har bir profil alohida, bo'laklar bosiladi
+function renderEditBars() {
+  const wrap = document.getElementById('barPlan');
+  wrap.className = 'editing';
+  wrap.innerHTML = '';
+  planBars.forEach((bar, bi) => wrap.appendChild(barCard(bar, 1, bi)));
+}
 
-  let nNew = 0, nStock = 0;
-  list.forEach(g => {
-    const bin = g.bin;
-    const total = bin.original;
-    const scrap = bin.cap;
-    const label = bin.fromStock
-      ? `Sklad qoldig'i (${total}sm)`
-      : `Yangi profil (${total}sm)`;
+// Bo'lakni tanlash / almashtirish
+function selectPiece(bi, pi) {
+  if (sel && sel.bi === bi && sel.pi === pi) { sel = null; renderPlan(); return; }
+  if (!sel) { sel = { bi, pi }; renderPlan(); return; }
+  const A = planBars[sel.bi], B = planBars[bi];
+  const va = A.cuts[sel.pi], vb = B.cuts[pi];
+  A.cuts[sel.pi] = vb; B.cuts[pi] = va;
+  if (barUsed(A) > A.original + 0.01 || barUsed(B) > B.original + 0.01) {
+    A.cuts[sel.pi] = va; B.cuts[pi] = vb;
+    alert("Almashtirib bo'lmaydi — profilga sig'maydi.");
+    return;
+  }
+  sel = null; renderPlan();
+}
 
-    let viz = '';
-    bin.cuts.forEach((c, i) => {
-      const pct = (c.len / total) * 100;
-      viz += `<div class="piece" style="width:${pct}%;background:${COLORS[i % COLORS.length]}" title="${c.len}sm">${c.len}</div>`;
-    });
-    const scrapPct = (scrap / total) * 100;
-    if (scrap > 0.05) viz += `<div class="piece scrap" style="width:${scrapPct}%" title="Qoldiq">${round1(scrap)}</div>`;
+// Tanlangan bo'lakni boshqa profilga ko'chirish (bo'sh joyni bosganda)
+function moveToBar(bi) {
+  if (!sel) return;
+  if (sel.bi === bi) { sel = null; renderPlan(); return; }
+  const src = planBars[sel.bi], dst = planBars[bi];
+  const v = src.cuts[sel.pi];
+  dst.cuts.push(v);
+  if (barUsed(dst) > dst.original + 0.01) {
+    dst.cuts.pop();
+    alert("Bu profilga sig'maydi.");
+    return;
+  }
+  src.cuts.splice(sel.pi, 1);
+  if (src.cuts.length === 0) planBars.splice(sel.bi, 1);
+  sel = null; renderPlan();
+}
 
-    const cutTxt = bin.cuts.map(c => c.len + 'sm').join('  +  ');
-    const reuse = scrap >= 30 ? `<div class="reuse-note">♻️ ${round1(scrap)}sm qoldiq — keyingi buyurtmaga saqlash mumkin</div>` : '';
-    const multBadge = g.count > 1 ? `<span class="mult">× ${g.count} dona</span>` : '';
+function addEmptyBar() {
+  planBars.push({ original: planBarLen, fromStock: false, cuts: [] });
+  renderPlan();
+}
 
-    const div = document.createElement('div');
-    div.className = 'bar' + (bin.fromStock ? ' from-stock' : '');
-    div.innerHTML = `
-      <div class="bar-head">
-        <span>${label} ${multBadge}</span>
-        <span class="src">${bin.fromStock ? 'SKLAD' : 'YANGI'}</span>
-      </div>
-      <div class="viz">${viz}</div>
-      <div class="cut-list">${cutTxt}  →  <span class="scrap-txt">qoldiq: ${round1(scrap)}sm</span></div>
-      ${reuse}`;
-    wrap.appendChild(div);
-  });
+function toggleEdit() {
+  editMode = !editMode;
+  sel = null;
+  if (!editMode) planBars = planBars.filter(b => b.cuts.length > 0); // bo'sh profillarni olib tashlaymiz
+  renderPlan();
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }
