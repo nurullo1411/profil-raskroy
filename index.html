@@ -144,6 +144,21 @@
   .btn-del-proj { background: #ffebee; color: #c62828; white-space: nowrap; }
   .btn-del-proj:hover { background: #ffcdd2; }
   .print-date { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .hist-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+  .hist-item {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid #e0e0e0; border-radius: 9px;
+    padding: 10px 12px; cursor: pointer; background: #fafafa;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .hist-item:hover { background: #e3f2fd; border-color: #90caf9; }
+  .hist-main { flex: 1; min-width: 0; }
+  .hist-title { font-size: 15px; font-weight: 600; color: #0d47a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hist-meta { font-size: 12px; color: #777; margin-top: 2px; }
+  .hist-empty { font-size: 13px; color: #999; padding: 6px 2px; }
+  .hist-head { display: flex; justify-content: space-between; align-items: center; }
+  .btn-clear { background: #fff; color: #c62828; border: 1px solid #ffcdd2; font-size: 12px; padding: 5px 10px; }
+  .btn-clear:hover { background: #ffebee; }
 
   @media print {
     body { background: #fff; padding: 0; }
@@ -220,6 +235,15 @@
       <button class="btn btn-del-proj" onclick="deleteSelected()">🗑 O'chirish</button>
     </div>
     <div class="hint">✓ Yozgan ma'lumotlaringiz avtomatik saqlanadi — brauzer yopilsa ham yo'qolmaydi. <b>Saqlash</b> tugmasi hisoblangan kesish rejasini ham saqlaydi — yuklaganda natija darrov chiqadi.</div>
+  </div>
+
+  <div class="card no-print">
+    <div class="hist-head">
+      <h2 style="margin-bottom:0">🕘 Hisob tarixi</h2>
+      <button class="btn btn-clear" onclick="clearHistory()">🗑 Hammasini tozalash</button>
+    </div>
+    <div class="hint" style="margin:6px 0 12px">Har <b>HISOBLASH</b> bosilganda natija shu yerga avtomatik tushadi. Bossangiz — qayta ochiladi.</div>
+    <div class="hist-list" id="histList"></div>
   </div>
 
   <button class="btn btn-calc" onclick="calculate()">🔢 HISOBLASH</button>
@@ -312,7 +336,13 @@ function addStock(len='', qty='') {
 /* ============ MA'LUMOTLARNI SAQLASH (localStorage) ============ */
 const AUTO_KEY = 'raskroy_autosave';
 const PROJ_KEY = 'raskroy_projects';
+const HIST_KEY = 'raskroy_history';
+const HIST_MAX = 50;
 let restoring = false;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+}
 
 function collectState() {
   const cuts = [];
@@ -414,12 +444,75 @@ function deleteSelected() {
   refreshProjList();
 }
 
+/* ============ HISOB TARIXI (avtomatik) ============ */
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch (e) { return []; }
+}
+function saveHistory(h) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) {}
+}
+// Har hisoblashda chaqiriladi — natijani tarixga qo'shadi
+function pushHistory(entry) {
+  let h = getHistory();
+  h.unshift(entry);
+  if (h.length > HIST_MAX) h = h.slice(0, HIST_MAX);
+  saveHistory(h);
+  refreshHistory();
+}
+function refreshHistory() {
+  const wrap = document.getElementById('histList');
+  const h = getHistory();
+  if (!h.length) {
+    wrap.innerHTML = '<div class="hist-empty">Hali hisob yo\'q — pastdagi HISOBLASH tugmasini bosing.</div>';
+    return;
+  }
+  wrap.innerHTML = h.map(e => {
+    const meta = e.date + '  •  ' + e.newBars + ' yangi profil'
+      + (e.stockUsed ? '  •  ' + e.stockUsed + ' sklad' : '')
+      + '  •  qoldiq ' + (e.scrap / 100).toFixed(2) + ' m';
+    return `<div class="hist-item" onclick="loadHistory(${e.id})">
+        <div class="hist-main">
+          <div class="hist-title">${escapeHtml(e.title)}</div>
+          <div class="hist-meta">${meta}</div>
+        </div>
+        <button class="btn-del" onclick="event.stopPropagation(); deleteHistory(${e.id})">×</button>
+      </div>`;
+  }).join('');
+}
+function loadHistory(id) {
+  const e = getHistory().find(x => x.id === id);
+  if (!e) return;
+  applyState(e.state);
+  document.getElementById('projName').value = e.plan.name || '';
+  autoSave();
+  planBars = e.plan.bars;
+  planKerf = e.plan.kerf;
+  planBarLen = e.plan.barLen;
+  planName = e.plan.name || '';
+  planDate = e.plan.date || '';
+  editMode = false; sel = null; listMode = false;
+  renderPlan();
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+function deleteHistory(id) {
+  saveHistory(getHistory().filter(x => x.id !== id));
+  refreshHistory();
+}
+function clearHistory() {
+  if (!getHistory().length) return;
+  if (!confirm("Butun hisob tarixi o'chirilsinmi?")) return;
+  saveHistory([]);
+  refreshHistory();
+}
+
 // Har qanday o'zgarishda avtomatik saqlash
 document.addEventListener('input', autoSave);
 
 // Sahifa ochilganda — saqlangan ma'lumotni tiklash, bo'lmasa bo'sh qatorlar
 (function init() {
   refreshProjList();
+  refreshHistory();
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(AUTO_KEY)); } catch (e) {}
   if (saved) {
@@ -502,6 +595,25 @@ function calculate() {
   const now = new Date();
   planDate = now.toLocaleDateString('uz-UZ') + ' ' + now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
   editMode = false; sel = null;
+
+  // Tarixga avtomatik yozish — sarlavha: profil nomi yoki o'lchamlar xulosasi
+  let title = profileName;
+  if (!title) {
+    const t = {};
+    pieces.forEach(p => { t[p.len] = (t[p.len] || 0) + 1; });
+    const keys = Object.keys(t).map(Number).sort((a, b) => b - a);
+    title = keys.slice(0, 3).map(l => l + '×' + t[l]).join(', ') + (keys.length > 3 ? ' …' : '');
+  }
+  pushHistory({
+    id: Date.now(),
+    title: title || 'Hisob',
+    date: planDate,
+    newBars: newBars.length,
+    stockUsed: stockUsed.length,
+    scrap: totalScrap,
+    state: collectState(),
+    plan: { bars: planBars, kerf: planKerf, barLen: planBarLen, name: planName, date: planDate }
+  });
 
   renderPlan();
   document.getElementById('results').style.display = 'block';
