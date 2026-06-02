@@ -219,7 +219,7 @@
       <button class="btn btn-load" onclick="loadSelected()">📂 Yuklash</button>
       <button class="btn btn-del-proj" onclick="deleteSelected()">🗑 O'chirish</button>
     </div>
-    <div class="hint">✓ Yozgan ma'lumotlaringiz avtomatik saqlanadi — brauzer yopilsa ham yo'qolmaydi.</div>
+    <div class="hint">✓ Yozgan ma'lumotlaringiz avtomatik saqlanadi — brauzer yopilsa ham yo'qolmaydi. <b>Saqlash</b> tugmasi hisoblangan kesish rejasini ham saqlaydi — yuklaganda natija darrov chiqadi.</div>
   </div>
 
   <button class="btn btn-calc" onclick="calculate()">🔢 HISOBLASH</button>
@@ -363,7 +363,18 @@ function saveProject() {
   if (!name) { alert("Buyurtma nomini kiriting."); return; }
   const projects = getProjects();
   if (projects[name] && !confirm(`"${name}" allaqachon bor. Ustiga yozilsinmi?`)) return;
-  projects[name] = collectState();
+  const data = collectState();
+  // Hisoblangan kesish rejasini ham saqlaymiz (agar hisoblangan bo'lsa)
+  if (planBars && planBars.length) {
+    data.plan = {
+      bars: planBars,
+      kerf: planKerf,
+      barLen: planBarLen,
+      name: planName,
+      date: planDate
+    };
+  }
+  projects[name] = data;
   try { localStorage.setItem(PROJ_KEY, JSON.stringify(projects)); } catch (e) { alert('Saqlashda xatolik.'); return; }
   refreshProjList();
   document.getElementById('projSelect').value = name;
@@ -374,9 +385,24 @@ function loadSelected() {
   if (!name) { alert("Avval ro'yxatdan buyurtmani tanlang."); return; }
   const projects = getProjects();
   if (!projects[name]) { alert("Buyurtma topilmadi."); return; }
-  applyState(projects[name]);
+  const data = projects[name];
+  applyState(data);
   document.getElementById('projName').value = name;
   autoSave();
+  // Saqlangan hisoblangan reja bo'lsa — darrov ko'rsatamiz (qayta hisoblashsiz)
+  if (data.plan && data.plan.bars && data.plan.bars.length) {
+    planBars = data.plan.bars;
+    planKerf = data.plan.kerf;
+    planBarLen = data.plan.barLen;
+    planName = data.plan.name || '';
+    planDate = data.plan.date || '';
+    editMode = false; sel = null; listMode = false;
+    renderPlan();
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+  } else {
+    document.getElementById('results').style.display = 'none';
+  }
 }
 function deleteSelected() {
   const name = document.getElementById('projSelect').value;
