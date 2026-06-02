@@ -115,6 +115,14 @@
   .hint { font-size: 12px; color: #999; margin-top: 4px; }
   .err { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 16px; display:none; }
   .reuse-note { font-size:12px; color:#2e7d32; margin-top:4px; }
+  .btn-list { background:#fff8e1; color:#ef6c00; }
+  .btn-list:hover { background:#ffecb3; }
+  .txt-group { background:#fff; border:1px solid #e0e0e0; border-radius:9px; padding:12px 16px; margin-bottom:10px; }
+  .txt-group.from-stock { background:#f1f8e9; border-color:#c5e1a5; }
+  .txt-group h3 { font-size:16px; color:#0d47a1; margin-bottom:6px; font-weight:700; }
+  .txt-group.from-stock h3 { color:#2e7d32; }
+  .txt-line { font-size:16px; padding:2px 0 2px 18px; }
+  .txt-scrap { color:#e65100; font-weight:600; font-size:14px; padding-left:18px; margin-top:5px; }
   #results { display: none; }
   .results-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 6px 0 8px; }
   .results-title { font-size: 20px; color:#0d47a1; }
@@ -145,7 +153,7 @@
     .results-title { font-size: 18px; }
     .summary { grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .stat { box-shadow: none; border: 1px solid #ccc; }
-    .bar, .stat { break-inside: avoid; page-break-inside: avoid; }
+    .bar, .stat, .txt-group { break-inside: avoid; page-break-inside: avoid; }
     .bar { box-shadow: none; }
     .viz, .piece, .scrap { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
@@ -222,6 +230,7 @@
     <div class="results-head">
       <div class="results-title" id="resultsTitle">📋 Natija — Kesish rejasi</div>
       <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn btn-list" id="listToggle" onclick="toggleList()">📝 Ro'yxat (chizmasiz)</button>
         <button class="btn btn-edit" id="editToggle" onclick="toggleEdit()">✏️ Qo'lda moslash</button>
         <button class="btn btn-print" onclick="window.print()">🖨️ Chop etish / PDF</button>
       </div>
@@ -242,7 +251,7 @@ const COLORS = ['#1976d2','#388e3c','#7b1fa2','#c2185b','#0097a7','#5d4037','#45
 // Kesish rejasi holati (qo'lda moslash uchun)
 let planBars = [];   // [{original, fromStock, cuts:[son,...]}]
 let planKerf = 0, planBarLen = 0, planName = '', planDate = '';
-let editMode = false, sel = null;
+let editMode = false, sel = null, listMode = false;
 
 // Bir katakdagi inputga o'tish (bo'lsa) — true qaytaradi
 function focusCell(tr, col) {
@@ -506,9 +515,13 @@ function renderPlan() {
 
   const eb = document.getElementById('editToggle');
   if (eb) eb.textContent = editMode ? "✓ Tayyor" : "✏️ Qo'lda moslash";
+  const lb = document.getElementById('listToggle');
+  if (lb) lb.textContent = listMode ? "🎨 Chizma ko'rinishi" : "📝 Ro'yxat (chizmasiz)";
   document.getElementById('editControls').style.display = editMode ? 'block' : 'none';
 
-  if (editMode) renderEditBars(); else renderGroupedBars();
+  if (listMode) renderListView();
+  else if (editMode) renderEditBars();
+  else renderGroupedBars();
 }
 
 // Bitta profil kartasi (bi >= 0 bo'lsa — tahrirlanadigan)
@@ -566,6 +579,49 @@ function renderGroupedBars() {
     .forEach(g => wrap.appendChild(barCard(g.bar, g.count, -1)));
 }
 
+// Chizmasiz / chizmali ko'rinishni almashtirish
+function toggleList() {
+  listMode = !listMode;
+  if (listMode) { editMode = false; sel = null; }
+  renderPlan();
+}
+
+// Matn ro'yxati ko'rinishi — har profil bo'yicha, o'lchamlar guruhlanadi (× N)
+function renderListView() {
+  const wrap = document.getElementById('barPlan');
+  wrap.className = '';
+  wrap.innerHTML = '';
+  const used = planBars.filter(b => b.cuts.length > 0);
+  const groups = {};
+  used.forEach(bar => {
+    const lens = bar.cuts.slice().sort((a, b) => b - a);
+    const sig = (bar.fromStock ? 'S' : 'N') + '|' + bar.original + '|' + lens.join(',');
+    if (!groups[sig]) groups[sig] = { bar, count: 0 };
+    groups[sig].count++;
+  });
+  Object.values(groups)
+    .sort((a, b) => (b.bar.fromStock - a.bar.fromStock) || (b.bar.original - a.bar.original))
+    .forEach(g => {
+      const bar = g.bar;
+      // bir profil ichidagi bir xil o'lchamlarni sanaymiz
+      const tally = {};
+      bar.cuts.forEach(l => { tally[l] = (tally[l] || 0) + 1; });
+      const lines = Object.keys(tally)
+        .map(Number)
+        .sort((a, b) => b - a)
+        .map(len => `<div class="txt-line">${round1(len)} × ${tally[len]}</div>`)
+        .join('');
+      const scrap = barScrap(bar);
+      const div = document.createElement('div');
+      div.className = 'txt-group' + (bar.fromStock ? ' from-stock' : '');
+      div.innerHTML = `
+        <h3>${bar.fromStock ? 'SKLAD' : 'YANGI'} ${round1(bar.original)}sm profil  × ${g.count} dona</h3>
+        ${lines}
+        <div class="txt-scrap">qoldiq: ${round1(scrap)} sm</div>`;
+      wrap.appendChild(div);
+    });
+}
+
 // Tahrir ko'rinishi — har bir profil alohida, bo'laklar bosiladi
 function renderEditBars() {
   const wrap = document.getElementById('barPlan');
@@ -613,6 +669,7 @@ function addEmptyBar() {
 
 function toggleEdit() {
   editMode = !editMode;
+  if (editMode) listMode = false;
   sel = null;
   if (!editMode) planBars = planBars.filter(b => b.cuts.length > 0); // bo'sh profillarni olib tashlaymiz
   renderPlan();
