@@ -1,5 +1,5 @@
 // Profil Raskroy — service worker (oflayn + avtomat yangilanish)
-const CACHE = 'raskroy-v4';
+const CACHE = 'raskroy-v5';
 const ASSETS = [
   './',
   './index.html',

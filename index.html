@@ -156,6 +156,16 @@
   .hist-title { font-size: 15px; font-weight: 600; color: #0d47a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hist-meta { font-size: 12px; color: #777; margin-top: 2px; }
   .hist-empty { font-size: 13px; color: #999; padding: 6px 2px; }
+  .hist-folder { border: 1px solid #e0e0e0; border-radius: 9px; overflow: hidden; }
+  .hist-folder-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 13px; cursor: pointer; background: #f5f7fa; user-select: none;
+  }
+  .hist-folder-head:hover { background: #eceff3; }
+  .hist-folder-name { font-size: 15px; font-weight: 600; color: #0d47a1; }
+  .hist-folder-count { font-size: 12px; color: #888; }
+  .hist-folder-body { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .hist-folder-body:empty { display: none; }
   .hist-head { display: flex; justify-content: space-between; align-items: center; }
   .btn-clear { background: #fff; color: #c62828; border: 1px solid #ffcdd2; font-size: 12px; padding: 5px 10px; }
   .btn-clear:hover { background: #ffebee; }
@@ -451,14 +461,39 @@ function getHistory() {
 function saveHistory(h) {
   try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) {}
 }
+let histOpen = {};   // qaysi kun papkalari ochiq: { '02/06/2026': true }
+
+function histDay(e) { return (e.date || '').split(' ')[0] || '—'; }
+
 // Har hisoblashda chaqiriladi — natijani tarixga qo'shadi
 function pushHistory(entry) {
   let h = getHistory();
   h.unshift(entry);
   if (h.length > HIST_MAX) h = h.slice(0, HIST_MAX);
   saveHistory(h);
+  histOpen[histDay(entry)] = true;   // yangi yozuv kuni ochiq turadi
   refreshHistory();
 }
+
+// Bitta yozuv kartochkasi
+function histEntryHtml(e) {
+  const meta = e.date + '  •  ' + e.newBars + ' yangi profil'
+    + (e.stockUsed ? '  •  ' + e.stockUsed + ' sklad' : '')
+    + '  •  qoldiq ' + (e.scrap / 100).toFixed(2) + ' m';
+  return `<div class="hist-item" onclick="loadHistory(${e.id})">
+      <div class="hist-main">
+        <div class="hist-title">${escapeHtml(e.title)}</div>
+        <div class="hist-meta">${meta}</div>
+      </div>
+      <button class="btn-del" onclick="event.stopPropagation(); deleteHistory(${e.id})">×</button>
+    </div>`;
+}
+
+function toggleFolder(day) {
+  histOpen[day] = !histOpen[day];
+  refreshHistory();
+}
+
 function refreshHistory() {
   const wrap = document.getElementById('histList');
   const h = getHistory();
@@ -466,16 +501,22 @@ function refreshHistory() {
     wrap.innerHTML = '<div class="hist-empty">Hali hisob yo\'q — pastdagi HISOBLASH tugmasini bosing.</div>';
     return;
   }
-  wrap.innerHTML = h.map(e => {
-    const meta = e.date + '  •  ' + e.newBars + ' yangi profil'
-      + (e.stockUsed ? '  •  ' + e.stockUsed + ' sklad' : '')
-      + '  •  qoldiq ' + (e.scrap / 100).toFixed(2) + ' m';
-    return `<div class="hist-item" onclick="loadHistory(${e.id})">
-        <div class="hist-main">
-          <div class="hist-title">${escapeHtml(e.title)}</div>
-          <div class="hist-meta">${meta}</div>
+  // Sana (kun) bo'yicha guruhlaymiz — h allaqachon eng yangidan tartiblangan
+  const groups = [], idx = {};
+  h.forEach(e => {
+    const d = histDay(e);
+    if (!(d in idx)) { idx[d] = groups.length; groups.push({ day: d, items: [] }); }
+    groups[idx[d]].items.push(e);
+  });
+  wrap.innerHTML = groups.map(g => {
+    const open = !!histOpen[g.day];
+    const body = open ? g.items.map(histEntryHtml).join('') : '';
+    return `<div class="hist-folder">
+        <div class="hist-folder-head" onclick="toggleFolder('${g.day}')">
+          <span class="hist-folder-name">${open ? '📂' : '📁'} ${g.day}</span>
+          <span class="hist-folder-count">${g.items.length} ta ${open ? '▾' : '▸'}</span>
         </div>
-        <button class="btn-del" onclick="event.stopPropagation(); deleteHistory(${e.id})">×</button>
+        <div class="hist-folder-body">${body}</div>
       </div>`;
   }).join('');
 }
