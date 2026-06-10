@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Rom Hisob — Buyurtma va Kesim</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d47a1">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rom Hisob">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root { --blue:#0d47a1; --blue2:#1565c0; --green:#2e7d32; --bg:#f0f2f5; }
+  body {
+    font-family: 'Segoe UI', Roboto, Tahoma, sans-serif;
+    background: var(--bg); color: #1a1a2e; line-height: 1.5;
+    padding-bottom: 72px; -webkit-text-size-adjust: 100%;
+  }
+  .topbar {
+    background: var(--blue); color:#fff; padding: 14px 16px;
+    position: sticky; top:0; z-index: 50; display:flex; align-items:center; gap:10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .topbar h1 { font-size: 18px; font-weight: 700; }
+  .topbar .v { font-size: 11px; opacity:.7; margin-left:auto; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 14px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .card {
+    background:#fff; border-radius: 12px; padding: 14px; margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .card h2 { font-size: 15px; color: var(--blue); margin-bottom: 12px; display:flex; align-items:center; gap:8px; }
+  label { font-size: 12px; color:#555; display:block; margin-bottom:4px; }
+  input, select {
+    width:100%; padding: 11px 12px; border:1px solid #ccd; border-radius:9px;
+    font-size:16px; background:#fff; color:#1a1a2e;
+  }
+  input:focus, select:focus { outline:none; border-color: var(--blue2); }
+  .row { display:flex; gap:10px; }
+  .row > div { flex:1; }
+  .btn {
+    border:none; border-radius:10px; padding: 12px 16px; font-size:15px;
+    font-weight:600; cursor:pointer; width:100%;
+  }
+  .btn-primary { background: var(--blue); color:#fff; }
+  .btn-primary:active { background: var(--blue2); }
+  .btn-green { background: var(--green); color:#fff; }
+  .btn-soft { background:#e3f2fd; color:var(--blue); }
+  .btn-add { background:#e3f2fd; color:var(--blue); margin-top:10px; }
+  .btn-sm { width:auto; padding:8px 12px; font-size:13px; }
+  .btn-del { background:#ffebee; color:#c62828; border:none; border-radius:8px; padding:8px 11px; font-weight:700; cursor:pointer; font-size:15px; }
+  .gap { display:flex; gap:10px; margin-top:6px; }
+  table { width:100%; border-collapse: collapse; }
+  th { text-align:left; font-size:11px; color:#888; padding:4px 4px; font-weight:600; }
+  td { padding:5px 4px; vertical-align: middle; }
+  td input, td select { padding:9px 8px; font-size:15px; }
+  .item-card { border:1px solid #e8e8ee; border-radius:10px; padding:10px; margin-bottom:10px; background:#fafbfc; }
+  .item-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .item-no { font-size:12px; font-weight:700; color:var(--blue); }
+  .item-sum { font-size:13px; color:var(--green); font-weight:700; }
+  .mini { font-size:12px; color:#888; }
+  .total-card { background: linear-gradient(135deg,#0d47a1,#1565c0); color:#fff; border-radius:12px; padding:16px; margin-bottom:14px; }
+  .total-card .lbl { font-size:13px; opacity:.85; }
+  .total-card .big { font-size:28px; font-weight:800; margin-top:2px; }
+  .total-card .sub { font-size:12px; opacity:.8; margin-top:4px; }
+  .hint { font-size:12px; color:#999; margin-top:6px; }
+  .err { background:#ffebee; color:#c62828; padding:12px; border-radius:9px; margin-bottom:12px; display:none; }
+  .empty { text-align:center; color:#aaa; padding:24px 10px; font-size:14px; }
+
+  /* pastki navigatsiya */
+  .nav {
+    position: fixed; bottom:0; left:0; right:0; background:#fff; display:flex;
+    border-top:1px solid #e0e0e0; z-index: 60; box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+  }
+  .nav button {
+    flex:1; border:none; background:none; padding:9px 4px 8px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px; color:#888; font-size:11px;
+  }
+  .nav button .ic { font-size:21px; line-height:1; }
+  .nav button.active { color: var(--blue); }
+  .nav button.active .ic { transform: translateY(-1px); }
+
+  /* kataloglar / tarix */
+  .list-item { display:flex; align-items:center; gap:10px; border:1px solid #eee; border-radius:10px; padding:11px 12px; margin-bottom:9px; background:#fafbfc; }
+  .list-item .main { flex:1; min-width:0; }
+  .list-item .t { font-size:15px; font-weight:600; color:#222; }
+  .list-item .m { font-size:12px; color:#777; margin-top:2px; }
+  .price-tag { font-size:14px; font-weight:700; color: var(--green); white-space:nowrap; }
+  .hist-item { cursor:pointer; }
+  .hist-item:active { background:#e3f2fd; }
+  .badge { font-size:11px; background:#e3f2fd; color:var(--blue); padding:2px 8px; border-radius:10px; }
+
+  /* kesim natijasi */
+  .summary { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .stat { background:#fff; border-radius:10px; padding:12px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+  .stat .num { font-size:22px; font-weight:700; color:var(--blue); }
+  .stat .lbl { font-size:11px; color:#777; margin-top:3px; }
+  .stat.waste .num { color:#e65100; } .stat.stock .num { color:var(--green); }
+  .bar { border:1px solid #e0e0e0; border-radius:9px; padding:11px 12px; margin-bottom:10px; background:#fff; }
+  .bar.from-stock { background:#f1f8e9; border-color:#c5e1a5; }
+  .bar-head { display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+  .bar-head .src { font-size:10px; padding:2px 8px; border-radius:10px; background:#e3f2fd; color:var(--blue); }
+  .bar.from-stock .src { background:#c8e6c9; color:var(--green); }
+  .mult { font-size:11px; padding:2px 9px; border-radius:10px; background:#fff3e0; color:#e65100; font-weight:700; }
+  .viz { display:flex; height:30px; border-radius:5px; overflow:hidden; border:1px solid #ddd; }
+  .piece { display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:600; overflow:hidden; white-space:nowrap; border-right:1px solid rgba(255,255,255,0.4); }
+  .scrap { background: repeating-linear-gradient(45deg,#ffe0b2,#ffe0b2 6px,#ffcc80 6px,#ffcc80 12px); color:#bf360c; }
+  .cut-list { font-size:12px; color:#444; margin-top:7px; }
+  .scrap-txt { color:#e65100; font-weight:600; }
+  .reuse-note { font-size:12px; color:var(--green); margin-top:4px; }
+
+  /* chop etish */
+  .print-only { display:none; }
+  @media print {
+    body { background:#fff; padding:0; }
+    .topbar, .nav, .no-print { display:none !important; }
+    .page { display:none !important; }
+    #printArea { display:block !important; }
+    .print-only { display:block; }
+    .wrap { padding:0; max-width:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span style="font-size:22px">🪟</span>
+  <h1 id="topTitle">Rom Hisob</h1>
+  <span class="v">v1.0</span>
+</div>
+
+<div class="wrap">
+
+  <!-- ========== BUYURTMA ========== -->
+  <div class="page active" id="page-order">
+    <div class="err" id="orderErr"></div>
+
+    <div class="card">
+      <h2>👤 Mijoz ma'lumoti</h2>
+      <div class="row">
+        <div><label>Mijoz ismi</label><input type="text" id="custName" placeholder="masalan: Aliyev Aziz"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Telefon</label><input type="tel" id="custPhone" placeholder="+998..."></div>
+        <div><label>Manzil / obyekt</label><input type="text" id="custAddr" placeholder="ixtiyoriy"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🪟 Mahsulotlar</h2>
+      <div id="itemsBox"></div>
+      <button class="btn btn-add" onclick="addItem()">+ Mahsulot qo'shish</button>
+      <div class="hint">O'lchamlar santimetrda (sm). Maydon va narx avtomatik hisoblanadi.</div>
+    </div>
+
+    <div class="total-card">
+      <div class="lbl">Jami summa</div>
+      <div class="big" id="grandTotal">0 so'm</div>
+      <div class="sub" id="grandSub">0 dona · 0.00 m²</div>
+    </div>
+
+    <button class="btn btn-green" onclick="saveOrder()" style="margin-bottom:10px">💾 Buyurtmani saqlash</button>
+    <button class="btn btn-soft" onclick="printOrder()">🖨️ PDF / Chop etish</button>
+  </div>
+
+  <!-- ========== NARXLAR ========== -->
+  <div class="page" id="page-price">
+    <div class="card">
+      <h2>💲 Mahsulot turlari va narxlari</h2>
+      <div class="hint" style="margin-bottom:10px">Har bir tur uchun <b>1 m² narxini</b> kiriting. Buyurtmada shu narxlardan tanlaysiz.</div>
+      <div id="catBox"></div>
+      <div class="card" style="background:#f7f9fc; box-shadow:none; margin-top:12px; margin-bottom:0">
+        <label>Yangi tur nomi</label>
+        <input type="text" id="newCatName" placeholder="masalan: Oq rom (oddiy)">
+        <div style="margin-top:10px"></div>
+        <label>1 m² narxi (so'm)</label>
+        <input type="number" id="newCatPrice" inputmode="numeric" placeholder="masalan: 250000">
+        <button class="btn btn-add" onclick="addCat()" style="margin-top:12px">+ Qo'shish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== KESIM ========== -->
+  <div class="page" id="page-cut">
+    <div class="err" id="cutErr"></div>
+    <div class="card">
+      <h2>⚙️ Sozlamalar</h2>
+      <div class="row">
+        <div><label>Profil nomi</label><input type="text" id="profileName" placeholder="masalan: AKFA rama"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Profil uzunligi (sm)</label><input type="number" id="barLength" value="600" inputmode="decimal"></div>
+        <div><label>Arra kengligi (sm)</label><input type="number" id="kerf" value="0.5" inputmode="decimal"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>✂️ Kesiladigan o'lchamlar</h2>
+      <table><thead><tr><th>O'lcham sm</th><th style="width:70px">Soni</th><th style="width:36px"></th></tr></thead>
+        <tbody id="cutsBody"></tbody></table>
+      <button class="btn btn-add" onclick="addCut()">+ Qator qo'shish</button>
+    </div>
+    <div class="card">
+      <h2>📦 Skladdagi qoldiq profillar</h2>
+      <div class="hint" style="margin-bottom:8px">Avval shulardan foydalanadi. Bo'sh qoldirsangiz — faqat yangi profildan.</div>
+      <table><thead><tr><th>Uzunlik sm</th><th style="width:70px">Soni</th><th style="width:36px"></th></tr></thead>
+        <tbody id="stockBody"></tbody></table>
+      <button class="btn btn-add" onclick="addStock()">+ Qator qo'shish</button>
+    </div>
+    <button class="btn btn-primary" onclick="calcCutting()">🔢 KESIMNI HISOBLASH</button>
+
+    <div id="cutResults" style="display:none; margin-top:16px">
+      <div style="display:flex; gap:8px; margin-bottom:10px">
+        <button class="btn btn-soft btn-sm" id="listToggle" onclick="toggleList()">📝 Ro'yxat</button>
+        <button class="btn btn-soft btn-sm" onclick="window.print()">🖨️ Chop etish</button>
+      </div>
+      <div class="summary" id="cutSummary"></div>
+      <div id="barPlan"></div>
+    </div>
+  </div>
+
+  <!-- ========== TARIX ========== -->
+  <div class="page" id="page-hist">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+        <h2 style="margin:0">🕘 Saqlangan buyurtmalar</h2>
+        <button class="btn btn-del btn-sm" onclick="clearOrders()">🗑 Tozalash</button>
+      </div>
+      <div id="histBox"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ====== PDF chop etish maydoni ====== -->
+<div id="printArea" class="print-only"></div>
+
+<!-- ====== pastki navigatsiya ====== -->
+<div class="nav no-print">
+  <button class="active" data-page="order" onclick="go('order')"><span class="ic">🪟</span>Buyurtma</button>
+  <button data-page="price" onclick="go('price')"><span class="ic">💲</span>Narxlar</button>
+  <button data-page="cut" onclick="go('cut')"><span class="ic">✂️</span>Kesim</button>
+  <button data-page="hist" onclick="go('hist')"><span class="ic">🕘</span>Tarix</button>
+</div>
+
+<script>
+/* ====================== UMUMIY ====================== */
+const TITLES = { order:'Rom Hisob', price:'Narxlar', cut:'Profil kesim', hist:'Buyurtmalar tarixi' };
+function go(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.page === p));
+  document.getElementById('topTitle').textContent = TITLES[p];
+  if (p === 'hist') renderHist();
+  window.scrollTo(0,0);
+}
+function som(n) { return Math.round(n).toLocaleString('ru-RU').replace(/ /g,' ') + " so'm"; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function ls_get(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+function ls_set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+/* ====================== NARXLAR (KATALOG) ====================== */
+const CAT_KEY = 'rh_catalog';
+function getCats(){ return ls_get(CAT_KEY, [
+  { id:1, name:"Oq rom (oddiy)", price:250000 },
+  { id:2, name:"Rangli rom", price:320000 },
+  { id:3, name:"Termo rom", price:420000 },
+]); }
+function setCats(c){ ls_set(CAT_KEY, c); }
+function renderCats(){
+  const box = document.getElementById('catBox');
+  const cats = getCats();
+  if (!cats.length){ box.innerHTML = '<div class="empty">Hali tur yo\'q. Pastdan qo\'shing.</div>'; return; }
+  box.innerHTML = cats.map(c => `
+    <div class="list-item">
+      <div class="main">
+        <div class="t">${esc(c.name)}</div>
+        <div class="m">1 m² narxi</div>
+      </div>
+      <span class="price-tag">${som(c.price)}</span>
+      <button class="btn-del" onclick="delCat(${c.id})">×</button>
+    </div>`).join('');
+}
+function addCat(){
+  const name = document.getElementById('newCatName').value.trim();
+  const price = parseFloat(document.getElementById('newCatPrice').value);
+  if (!name){ alert('Tur nomini kiriting.'); return; }
+  if (!(price > 0)){ alert("1 m² narxini kiriting."); return; }
+  const cats = getCats();
+  cats.push({ id: Date.now(), name, price });
+  setCats(cats);
+  document.getElementById('newCatName').value = '';
+  document.getElementById('newCatPrice').value = '';
+  renderCats(); refreshItemSelects();
+}
+function delCat(id){
+  if (!confirm("Bu turni o'chirasizmi?")) return;
+  setCats(getCats().filter(c => c.id !== id));
+  renderCats(); refreshItemSelects();
+}
+
+/* ====================== BUYURTMA ====================== */
+let itemSeq = 0;
+function catOptions(selId){
+  const cats = getCats();
+  return '<option value="">— tur tanlang —</option>' +
+    cats.map(c => `<option value="${c.id}" ${c.id==selId?'selected':''}>${esc(c.name)} (${som(c.price)}/m²)</option>`).join('');
+}
+function addItem(d){
+  d = d || {};
+  itemSeq++;
+  const box = document.getElementById('itemsBox');
+  const div = document.createElement('div');
+  div.className = 'item-card';
+  div.dataset.id = itemSeq;
+  div.innerHTML = `
+    <div class="item-head">
+      <span class="item-no">#<span class="ino">${box.children.length+1}</span></span>
+      <button class="btn-del" onclick="this.closest('.item-card').remove(); recalcOrder()">×</button>
+    </div>
+    <label>Mahsulot turi</label>
+    <select class="i-type" onchange="recalcOrder()">${catOptions(d.typeId)}</select>
+    <div class="row" style="margin-top:10px">
+      <div><label>Eni (sm)</label><input type="number" class="i-w" inputmode="decimal" value="${d.w||''}" placeholder="0" oninput="recalcOrder()"></div>
+      <div><label>Bo'yi (sm)</label><input type="number" class="i-h" inputmode="decimal" value="${d.h||''}" placeholder="0" oninput="recalcOrder()"></div>
+      <div><label>Soni</label><input type="number" class="i-q" inputmode="numeric" value="${d.q||1}" placeholder="1" oninput="recalcOrder()"></div>
+    </div>
+    <div class="item-head" style="margin-top:8px; margin-bottom:0">
+      <span class="mini i-area">0.00 m²</span>
+      <span class="item-sum i-sum">0 so'm</span>
+    </div>`;
+  box.appendChild(div);
+  recalcOrder();
+}
+function refreshItemSelects(){
+  document.querySelectorAll('#itemsBox .item-card').forEach(card => {
+    const sel = card.querySelector('.i-type');
+    const cur = sel.value;
+    sel.innerHTML = catOptions(parseInt(cur)||'');
+  });
+  recalcOrder();
+}
+function itemData(card){
+  const cats = getCats();
+  const typeId = parseInt(card.querySelector('.i-type').value);
+  const cat = cats.find(c => c.id === typeId);
+  const w = parseFloat(card.querySelector('.i-w').value) || 0;
+  const h = parseFloat(card.querySelector('.i-h').value) || 0;
+  const q = parseInt(card.querySelector('.i-q').value) || 0;
+  const area = (w * h / 10000) * q;          // sm×sm → m², × soni
+  const price = cat ? area * cat.price : 0;
+  return { typeId, name: cat?cat.name:'', unitPrice: cat?cat.price:0, w, h, q, area, price };
+}
+function recalcOrder(){
+  let total = 0, area = 0, qty = 0;
+  document.querySelectorAll('#itemsBox .item-card').forEach((card,i) => {
+    const d = itemData(card);
+    card.querySelector('.ino').textContent = i+1;
+    card.querySelector('.i-area').textContent = d.area.toFixed(2) + ' m²';
+    card.querySelector('.i-sum').textContent = som(d.price);
+    total += d.price; area += d.area; qty += d.q;
+  });
+  document.getElementById('grandTotal').textContent = som(total);
+  document.getElementById('grandSub').textContent = qty + ' dona · ' + area.toFixed(2) + ' m²';
+}
+function collectOrder(){
+  const items = [];
+  document.querySelectorAll('#itemsBox .item-card').forEach(card => {
+    const d = itemData(card);
+    if (d.q > 0 && d.w > 0 && d.h > 0) items.push(d);
+  });
+  return {
+    cust: document.getElementById('custName').value.trim(),
+    phone: document.getElementById('custPhone').value.trim(),
+    addr: document.getElementById('custAddr').value.trim(),
+    items
+  };
+}
+
+/* ====================== BUYURTMA SAQLASH / TARIX ====================== */
+const ORD_KEY = 'rh_orders';
+function getOrders(){ return ls_get(ORD_KEY, []); }
+function setOrders(o){ ls_set(ORD_KEY, o); }
+function saveOrder(){
+  const o = collectOrder();
+  if (!o.items.length){ showErr('orderErr', "Kamida bitta to'liq mahsulot kiriting (tur, eni, bo'yi, soni)."); return; }
+  const total = o.items.reduce((s,x)=>s+x.price,0);
+  const area = o.items.reduce((s,x)=>s+x.area,0);
+  const qty = o.items.reduce((s,x)=>s+x.q,0);
+  const now = new Date();
+  const orders = getOrders();
+  orders.unshift({
+    id: Date.now(),
+    date: now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),
+    day: now.toLocaleDateString('ru-RU'),
+    cust:o.cust, phone:o.phone, addr:o.addr, items:o.items, total, area, qty
+  });
+  setOrders(orders);
+  document.getElementById('orderErr').style.display='none';
+  alert('✓ Buyurtma saqlandi.');
+}
+function renderHist(){
+  const box = document.getElementById('histBox');
+  const orders = getOrders();
+  if (!orders.length){ box.innerHTML = '<div class="empty">Hali saqlangan buyurtma yo\'q.</div>'; return; }
+  box.innerHTML = orders.map(o => `
+    <div class="list-item hist-item" onclick="loadOrder(${o.id})">
+      <div class="main">
+        <div class="t">${esc(o.cust || 'Nomsiz mijoz')}</div>
+        <div class="m">${o.date} · ${o.qty} dona · ${o.area.toFixed(2)} m²</div>
+      </div>
+      <span class="price-tag">${som(o.total)}</span>
+      <button class="btn-del" onclick="event.stopPropagation(); delOrder(${o.id})">×</button>
+    </div>`).join('');
+}
+function loadOrder(id){
+  const o = getOrders().find(x => x.id === id);
+  if (!o) return;
+  document.getElementById('custName').value = o.cust || '';
+  document.getElementById('custPhone').value = o.phone || '';
+  document.getElementById('custAddr').value = o.addr || '';
+  document.getElementById('itemsBox').innerHTML = '';
+  o.items.forEach(it => addItem({ typeId: it.typeId, w: it.w, h: it.h, q: it.q }));
+  recalcOrder();
+  go('order');
+}
+function delOrder(id){
+  if (!confirm("Bu buyurtmani o'chirasizmi?")) return;
+  setOrders(getOrders().filter(x => x.id !== id));
+  renderHist();
+}
+function clearOrders(){
+  if (!getOrders().length) return;
+  if (!confirm("Hamma saqlangan buyurtmalar o'chirilsinmi?")) return;
+  setOrders([]); renderHist();
+}
+
+/* ====================== PDF / CHOP ETISH ====================== */
+function printOrder(){
+  const o = collectOrder();
+  if (!o.items.length){ showErr('orderErr', "Avval mahsulot kiriting."); return; }
+  document.getElementById('orderErr').style.display='none';
+  const total = o.items.reduce((s,x)=>s+x.price,0);
+  const area = o.items.reduce((s,x)=>s+x.area,0);
+  const qty = o.items.reduce((s,x)=>s+x.q,0);
+  const now = new Date();
+  const rows = o.items.map((it,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${esc(it.name)}</td>
+      <td style="text-align:center">${it.w}×${it.h}</td>
+      <td style="text-align:center">${it.q}</td>
+      <td style="text-align:right">${it.area.toFixed(2)}</td>
+      <td style="text-align:right">${som(it.unitPrice)}</td>
+      <td style="text-align:right"><b>${som(it.price)}</b></td>
+    </tr>`).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:'Segoe UI',sans-serif; color:#1a1a2e; padding:6px">
+      <h2 style="color:#0d47a1; font-size:20px">🪟 Buyurtma — hisob-kitob</h2>
+      <div style="font-size:13px; color:#555; margin:6px 0 14px; border-bottom:2px solid #0d47a1; padding-bottom:10px">
+        <b>Mijoz:</b> ${esc(o.cust||'—')} &nbsp; ${o.phone?('· '+esc(o.phone)):''} ${o.addr?('<br><b>Obyekt:</b> '+esc(o.addr)):''}<br>
+        <b>Sana:</b> ${now.toLocaleDateString('ru-RU')} ${now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:13px">
+        <thead>
+          <tr style="background:#e3f2fd; color:#0d47a1">
+            <th style="padding:7px 5px; text-align:left">№</th>
+            <th style="padding:7px 5px; text-align:left">Tur</th>
+            <th style="padding:7px 5px">O'lcham sm</th>
+            <th style="padding:7px 5px">Soni</th>
+            <th style="padding:7px 5px; text-align:right">m²</th>
+            <th style="padding:7px 5px; text-align:right">m² narxi</th>
+            <th style="padding:7px 5px; text-align:right">Summa</th>
+          </tr>
+        </thead>
+        <tbody>${rows.replace(/<td/g,'<td style="padding:6px 5px; border-bottom:1px solid #eee"')}</tbody>
+      </table>
+      <div style="margin-top:16px; text-align:right; font-size:13px; color:#555">
+        Jami: ${qty} dona · ${area.toFixed(2)} m²
+      </div>
+      <div style="margin-top:6px; text-align:right; font-size:22px; font-weight:800; color:#0d47a1">
+        Jami summa: ${som(total)}
+      </div>
+    </div>`;
+  window.print();
+}
+function showErr(id,msg){ const e=document.getElementById(id); e.textContent='⚠️ '+msg; e.style.display='block'; window.scrollTo(0,0); }
+
+/* ====================== PROFIL KESIM (RASKROY) ====================== */
+const COLORS = ['#1976d2','#388e3c','#7b1fa2','#c2185b','#0097a7','#5d4037','#455a64','#f57c00','#512da8','#00796b'];
+let planBars = [], planKerf = 0, planBarLen = 0, planName = '', listMode = false;
+
+function addCut(size='', qty=''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="number" class="c-size" inputmode="decimal" value="${size}" placeholder="0"></td>
+    <td><input type="number" class="c-qty" inputmode="numeric" value="${qty}" placeholder="0"></td>
+    <td><button class="btn-del" onclick="this.closest('tr').remove()">×</button></td>`;
+  document.getElementById('cutsBody').appendChild(tr);
+}
+function addStock(len='', qty=''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="number" class="s-len" inputmode="decimal" value="${len}" placeholder="0"></td>
+    <td><input type="number" class="s-qty" inputmode="numeric" value="${qty}" placeholder="0"></td>
+    <td><button class="btn-del" onclick="this.closest('tr').remove()">×</button></td>`;
+  document.getElementById('stockBody').appendChild(tr);
+}
+function calcCutting(){
+  document.getElementById('cutErr').style.display='none';
+  const barLen = parseFloat(document.getElementById('barLength').value);
+  const kerf = parseFloat(document.getElementById('kerf').value) || 0;
+  const profileName = document.getElementById('profileName').value.trim();
+  if (!barLen || barLen <= 0){ showErr('cutErr','Profil uzunligini kiriting.'); return; }
+
+  let pieces = [];
+  document.querySelectorAll('#cutsBody tr').forEach(tr => {
+    const size = parseFloat(tr.querySelector('.c-size').value);
+    const qty = parseInt(tr.querySelector('.c-qty').value);
+    if (size > 0 && qty > 0) for (let i=0;i<qty;i++) pieces.push({len:size});
+  });
+  if (!pieces.length){ showErr('cutErr',"Kamida bitta o'lcham va sonini kiriting."); return; }
+  const maxPiece = Math.max(...pieces.map(p=>p.len));
+  if (maxPiece > barLen){ showErr('cutErr',`O'lcham ${maxPiece}sm profildan (${barLen}sm) uzun.`); return; }
+
+  let stockBins = [];
+  document.querySelectorAll('#stockBody tr').forEach(tr => {
+    const len = parseFloat(tr.querySelector('.s-len').value);
+    const qty = parseInt(tr.querySelector('.s-qty').value);
+    if (len > 0 && qty > 0) for (let i=0;i<qty;i++) stockBins.push({original:len});
+  });
+  stockBins.sort((a,b)=>a.original-b.original);
+  pieces.sort((a,b)=>b.len-a.len);
+
+  let bins = stockBins.map(s => ({cap:s.original, original:s.original, cuts:[], fromStock:true}));
+  for (const p of pieces){
+    let best=-1, bestScore=Infinity;
+    for (let i=0;i<bins.length;i++){
+      const need = p.len + (bins[i].cuts.length>0?kerf:0);
+      if (bins[i].cap >= need){
+        const remain = bins[i].cap - need;
+        const score = remain - (bins[i].fromStock ? barLen*2 : 0);
+        if (score < bestScore){ bestScore=score; best=i; }
+      }
+    }
+    if (best===-1) bins.push({cap:barLen-p.len, original:barLen, cuts:[p], fromStock:false});
+    else { bins[best].cap -= p.len + (bins[best].cuts.length>0?kerf:0); bins[best].cuts.push(p); }
+  }
+  const used = bins.filter(b => b.cuts.length>0);
+  planBars = used.map(b => ({original:b.original, fromStock:b.fromStock, cuts:b.cuts.map(c=>c.len)}));
+  planKerf = kerf; planBarLen = barLen; planName = profileName; listMode = false;
+  renderCutPlan();
+  document.getElementById('cutResults').style.display='block';
+}
+function barUsed(bar){ const n=bar.cuts.length; return bar.cuts.reduce((s,x)=>s+x,0)+(n>0?planKerf*(n-1):0); }
+function barScrap(bar){ return bar.original - barUsed(bar); }
+function r1(n){ return Math.round(n*10)/10; }
+function renderCutPlan(){
+  const real = planBars.filter(b=>b.cuts.length>0);
+  const newBars = real.filter(b=>!b.fromStock);
+  const stockUsed = real.filter(b=>b.fromStock);
+  const totalScrap = real.reduce((s,b)=>s+barScrap(b),0);
+  document.getElementById('cutSummary').innerHTML = `
+    <div class="stat"><div class="num">${newBars.length}</div><div class="lbl">Yangi profil (dona)</div></div>
+    <div class="stat"><div class="num">${(newBars.length*planBarLen/100).toFixed(2)} m</div><div class="lbl">Jami yangi uzunlik</div></div>
+    <div class="stat stock"><div class="num">${stockUsed.length}</div><div class="lbl">Skladdan (dona)</div></div>
+    <div class="stat waste"><div class="num">${(totalScrap/100).toFixed(2)} m</div><div class="lbl">Umumiy qoldiq</div></div>`;
+  const lb = document.getElementById('listToggle');
+  if (lb) lb.textContent = listMode ? '🎨 Chizma' : '📝 Ro\'yxat';
+  if (listMode) renderListView(); else renderGroupedBars();
+}
+function groupBars(){
+  const used = planBars.filter(b=>b.cuts.length>0);
+  const groups = {};
+  used.forEach(bar => {
+    const lens = bar.cuts.slice().sort((a,b)=>b-a);
+    const sig = (bar.fromStock?'S':'N')+'|'+bar.original+'|'+lens.join(',');
+    if (!groups[sig]) groups[sig] = {bar, count:0};
+    groups[sig].count++;
+  });
+  return Object.values(groups).sort((a,b)=>(b.bar.fromStock-a.bar.fromStock)||(b.bar.original-a.bar.original));
+}
+function renderGroupedBars(){
+  const wrap = document.getElementById('barPlan'); wrap.innerHTML='';
+  groupBars().forEach(g => {
+    const bar=g.bar, total=bar.original, scrap=barScrap(bar);
+    let viz='';
+    bar.cuts.forEach((len,pi)=>{ viz+=`<div class="piece" style="width:${len/total*100}%;background:${COLORS[pi%COLORS.length]}" title="${len}sm">${len}</div>`; });
+    if (scrap>0.05) viz+=`<div class="piece scrap" style="width:${scrap/total*100}%">${r1(scrap)}</div>`;
+    const cutTxt = bar.cuts.map(c=>c+'sm').join('  +  ');
+    const reuse = scrap>=30 ? `<div class="reuse-note">♻️ ${r1(scrap)}sm qoldiq — saqlash mumkin</div>` : '';
+    const mult = g.count>1 ? `<span class="mult">× ${g.count} dona</span>` : '';
+    const div=document.createElement('div'); div.className='bar'+(bar.fromStock?' from-stock':'');
+    div.innerHTML=`<div class="bar-head"><span>${bar.fromStock?'Sklad':'Yangi'} (${total}sm) ${mult}</span><span class="src">${bar.fromStock?'SKLAD':'YANGI'}</span></div>
+      <div class="viz">${viz}</div>
+      <div class="cut-list">${cutTxt}  →  <span class="scrap-txt">qoldiq: ${r1(scrap)}sm</span></div>${reuse}`;
+    wrap.appendChild(div);
+  });
+}
+function renderListView(){
+  const wrap = document.getElementById('barPlan'); wrap.innerHTML='';
+  groupBars().forEach(g => {
+    const bar=g.bar, tally={};
+    bar.cuts.forEach(l=>{ tally[l]=(tally[l]||0)+1; });
+    const lines = Object.keys(tally).map(Number).sort((a,b)=>b-a).map(len=>`<div style="font-size:15px; padding:2px 0 2px 14px">${r1(len)} × ${tally[len]}</div>`).join('');
+    const div=document.createElement('div'); div.className='bar'+(bar.fromStock?' from-stock':'');
+    div.innerHTML=`<div class="bar-head"><span>${bar.fromStock?'SKLAD':'YANGI'} ${r1(bar.original)}sm × ${g.count} dona</span></div>${lines}
+      <div class="scrap-txt" style="padding-left:14px; margin-top:5px">qoldiq: ${r1(barScrap(bar))} sm</div>`;
+    wrap.appendChild(div);
+  });
+}
+function toggleList(){ listMode=!listMode; renderCutPlan(); }
+
+/* ====================== INIT ====================== */
+(function init(){
+  renderCats();
+  if (!document.querySelectorAll('#itemsBox .item-card').length) addItem();
+  addCut('',''); addCut('',''); addCut('',''); addStock('','');
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
